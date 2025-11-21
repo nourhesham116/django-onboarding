@@ -37,8 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-     'rest_framework',   # for Django REST Framework
-    'tasks_app',        # our new app
+    'rest_framework',                          # for Django REST Framework
+    'rest_framework_simplejwt.token_blacklist', # JWT token blacklist (for BLACKLIST_AFTER_ROTATION)
+    'django_filters',                          # for filtering querysets
+    'tasks_app',                               # our new app
 ]
 
 MIDDLEWARE = [
@@ -122,3 +124,63 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ============= REST FRAMEWORK CONFIGURATION =============
+REST_FRAMEWORK = {
+    # PAGINATION SETTINGS
+    # Uses Django REST Framework's default PageNumberPagination
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+
+    # PAGE_SIZE: Number of items per page (fixed, cannot be overridden by users)
+    'PAGE_SIZE': 10,
+
+    # ============= JWT AUTHENTICATION =============
+    # JWT (JSON Web Token) Authentication
+    # Stateless authentication - no session storage needed on server
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        # JWTAuthentication checks for JWT token in Authorization header
+        # Format: "Authorization: Bearer <token>"
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+
+    # PERMISSIONS ARE SET AT VIEWSET LEVEL
+    # EmployeeViewSet and TaskViewSet use IsAuthenticatedOrReadOnly:
+    # - GET requests: Public access (no authentication required)
+    # - POST, PUT, PATCH, DELETE: Requires JWT authentication
+    #
+    # This allows:
+    # - Anyone to browse employees and tasks (read-only)
+    # - Only authenticated users to create, update, or delete data
+}
+
+# ============= JWT TOKEN SETTINGS =============
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    # HOW LONG TOKENS ARE VALID:
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Access token valid for 60 min
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Refresh token valid for 1 day
+
+    # WHAT IS ACCESS TOKEN vs REFRESH TOKEN?
+    # - ACCESS TOKEN: Short-lived token for API requests (60 min)
+    #   Used in: Authorization: Bearer <access_token>
+    # - REFRESH TOKEN: Long-lived token to get new access tokens (1 day)
+    #   When access token expires, use refresh token to get a new access token
+    #   without logging in again
+
+    # TOKEN ROTATION: Get new refresh token when using it
+    'ROTATE_REFRESH_TOKENS': True,  # Get new refresh token on refresh
+
+    # BLACKLIST: Prevent reuse of old tokens after refresh
+    'BLACKLIST_AFTER_ROTATION': True,  # Old tokens can't be used after rotation
+
+    # ALGORITHM: How tokens are signed/encrypted
+    'ALGORITHM': 'HS256',  # HMAC with SHA-256
+
+    # SIGNING KEY: Use Django's SECRET_KEY to sign tokens
+    'SIGNING_KEY': SECRET_KEY,
+
+    # TOKEN HEADER: How tokens are sent
+    'AUTH_HEADER_TYPES': ('Bearer',),  # Use "Authorization: Bearer <token>"
+}
+
